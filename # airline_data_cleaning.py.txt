@@ -1,0 +1,90 @@
+# airline_data_cleaning.py
+# Simple data-cleaning script for the Airlines Performance dataset
+
+import pandas as pd
+
+print("Step 1: Loading dataset...")
+df = pd.read_csv("flights.csv", low_memory=False)
+print("Loaded:", df.shape, "rows")
+
+# ---------- Step 2: Keep useful columns ----------
+cols = [
+    "year", "month", "day",
+    "dep_time", "sched_dep_time", "dep_delay",
+    "arr_time", "sched_arr_time", "arr_delay",
+    "carrier", "flight", "tailnum",
+    "origin", "dest", "air_time", "distance",
+    "hour", "minute", "time_hour", "name"
+]
+df = df[[c for c in cols if c in df.columns]].copy()
+print("Step 2: Columns trimmed:", len(df.columns), "kept")
+
+# ---------- Step 3: Clean numeric columns ----------
+num_cols = ["dep_delay", "arr_delay", "air_time", "distance"]
+for c in num_cols:
+    if c in df.columns:
+        df[c] = pd.to_numeric(df[c], errors="coerce")
+
+# ---------- Step 4: Create date/time helpers ----------
+df["date"] = pd.to_datetime(df[["year", "month", "day"]], errors="coerce")
+df["cancelled"] = df["dep_time"].isna() | df["arr_time"].isna()
+df["ontime"] = df["arr_delay"].apply(lambda x: True if pd.notna(x) and x <= 15 else False)
+
+print("Step 3: Basic cleaning done.")
+
+# ---------- Step 5: Add readable airport names ----------
+airport_map = {
+    "ATL": ("Hartsfield–Jackson Atlanta Intl Airport", "Atlanta"),
+    "BOS": ("Logan Intl Airport", "Boston"),
+    "BWI": ("Baltimore/Washington Intl Airport", "Baltimore"),
+    "CLT": ("Charlotte Douglas Intl Airport", "Charlotte"),
+    "DCA": ("Ronald Reagan Washington National Airport", "Washington D.C."),
+    "DEN": ("Denver Intl Airport", "Denver"),
+    "DFW": ("Dallas/Fort Worth Intl Airport", "Dallas"),
+    "DTW": ("Detroit Metropolitan Wayne County Airport", "Detroit"),
+    "EWR": ("Newark Liberty Intl Airport", "Newark"),
+    "FLL": ("Fort Lauderdale–Hollywood Intl Airport", "Fort Lauderdale"),
+    "HNL": ("Daniel K. Inouye Intl Airport", "Honolulu"),
+    "IAH": ("George Bush Intercontinental Airport", "Houston"),
+    "JFK": ("John F. Kennedy Intl Airport", "New York"),
+    "LAS": ("Harry Reid Intl Airport", "Las Vegas"),
+    "LAX": ("Los Angeles Intl Airport", "Los Angeles"),
+    "LGA": ("LaGuardia Airport", "New York"),
+    "MCO": ("Orlando Intl Airport", "Orlando"),
+    "MDW": ("Chicago Midway Intl Airport", "Chicago"),
+    "MIA": ("Miami Intl Airport", "Miami"),
+    "MSP": ("Minneapolis–Saint Paul Intl Airport", "Minneapolis"),
+    "ORD": ("O’Hare Intl Airport", "Chicago"),
+    "PDX": ("Portland Intl Airport", "Portland"),
+    "PHL": ("Philadelphia Intl Airport", "Philadelphia"),
+    "PHX": ("Phoenix Sky Harbor Intl Airport", "Phoenix"),
+    "RDU": ("Raleigh–Durham Intl Airport", "Raleigh"),
+    "SAN": ("San Diego Intl Airport", "San Diego"),
+    "SEA": ("Seattle–Tacoma Intl Airport", "Seattle"),
+    "SFO": ("San Francisco Intl Airport", "San Francisco"),
+    "SJC": ("San Jose Intl Airport", "San Jose"),
+    "SLC": ("Salt Lake City Intl Airport", "Salt Lake City"),
+    "STL": ("St. Louis Lambert Intl Airport", "St. Louis"),
+    "TPA": ("Tampa Intl Airport", "Tampa"),
+}
+
+df["origin_fullname"] = df["origin"].map(lambda x: airport_map.get(x, (x, x))[0])
+df["origin_city"] = df["origin"].map(lambda x: airport_map.get(x, (x, x))[1])
+df["dest_fullname"] = df["dest"].map(lambda x: airport_map.get(x, (x, x))[0])
+df["dest_city"] = df["dest"].map(lambda x: airport_map.get(x, (x, x))[1])
+
+print("Step 4: Added readable airport names.")
+
+# ---------- Step 6: Create Route column ----------
+df["Route"] = (
+    df["origin_city"].fillna("Unknown").astype(str)
+    + " → "
+    + df["dest_city"].fillna("Unknown").astype(str)
+)
+
+print("Step 5: Route column created.")
+
+# ---------- Step 7: Save cleaned dataset ----------
+df.to_csv("clean_airlines_named_route.csv", index=False)
+print("Step 6: File saved as clean_airlines_named_route.csv")
+print("Cleaning complete!")
